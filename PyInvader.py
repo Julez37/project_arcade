@@ -414,6 +414,13 @@ pygame.mouse.set_visible(0)
 #Enable Keyinput repeat
 pygame.key.set_repeat(10,10)
 
+#Initialise the Joysticks
+pygame.joystick.init()
+
+#Create Joystick to listen to and initialise it
+joystick = pygame.joystick.Joystick(1)
+joystick.init()
+
 #Setup Video
 video.SetDisplay(800, 600, False)
 
@@ -488,8 +495,14 @@ while 1:
 
         #Events
         for event in pygame.event.get():
-            #Keydown
-            if event.type == KEYDOWN:
+            #Catch key and Joystickevents - Basically the controls
+            if event.type == KEYDOWN or event.type == JOYAXISMOTION or event.type == JOYBUTTONDOWN:
+                if event.joy == 1 and event.axis == 0 and event.pos < 0:
+                    player.MoveLeft()
+                if event.joy == 1 and event.axis == 0 and event.pos > 0:
+                    player.MoveRight()
+                if event.joy == 1 and event.button == 0:
+                    player.Fire()
                 if event.key == K_ESCAPE:
                     pygame.quit()
                     sys.exit(0)
@@ -499,7 +512,7 @@ while 1:
                     player.MoveLeft()
                 if event.key == K_SPACE:
                     player.Fire()
-                if event.key == K_BACKSLASH:
+                if event.key == K_f:
                     if video.getFullscreen() == False:
                         video.SetDisplay(800, 600, True)
                     else:
