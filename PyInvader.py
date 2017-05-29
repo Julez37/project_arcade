@@ -685,10 +685,23 @@ while 1:
                         Loop_Count = 0 #Re-Load data for menu, and render
 
             if event.type == JOYBUTTONDOWN:
-                START_GAME = True
-                pygame.mixer.music.play(-1)
-                video.SetDisplay(800, 600, video.getFullscreen())
-                break
+
+                if event.button == 2:
+                    START_GAME = True
+                    pygame.mixer.music.play(-1)
+                    video.SetDisplay(800, 600, video.getFullscreen())
+                    break
+
+                if event.button == 3:
+                    pygame.quit()
+                    sys.exit(0)
+                if event.button == 1:
+                    if video.getFullscreen() == False:
+                        video.SetDisplay(800, 600, True)
+                    else:
+                        video.SetDisplay(800, 600, False)
+
+
 
         pygame.display.get_surface().blit(Menu_Logo, (0,0))
         pygame.display.get_surface().blit(Start_Game_Text, (10,250))
@@ -730,6 +743,11 @@ while 1:
                 if event.button == 3:
                     pygame.quit()
                     sys.exit(0)
+                if event.button == 1:
+                    if video.getFullscreen() == False:
+                        video.SetDisplay(800, 600, True)
+                    else:
+                        video.SetDisplay(800, 600, False)
 
         enemy_man.Render()
         video.SCREEN.fill((0,0,0))
