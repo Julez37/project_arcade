@@ -44,7 +44,7 @@ class FPS:
     CLOCK = None
     def __init__(self):
         #Setup Variables
-        self.FRAMES_PER_SEC = 60
+        self.FRAMES_PER_SEC = 30
         self.CLOCK = pygame.time.Clock()
 
     def Tick(self):
@@ -152,7 +152,7 @@ class EnemyManagement:
             self.FIRE_SPRITE = pygame.image.load("data/images/Missile_Alien.png")
             self.FIRE_XPOS = self.XPOS
             self.FIRE_YPOS = self.YPOS
-            self.FIRE_SPEED = 4
+            self.FIRE_SPEED = (3 + DIFFICULTY) * 2
             self.FIRE_DISPLAY = False
 
         def Fire(self):
@@ -222,6 +222,11 @@ class EnemyManagement:
         self.ENEMY_LIST = []
 
     def Generate(self):
+        #clear up the last round
+        self.ENEMY_LIST = []
+        self.MoveX = 0
+        self.MoveY = 0
+
         #Generate Enemy list based on arcade version
         for i in range(0, self.NUM_ROWS):
             #Gererate the current row (going across)
@@ -294,14 +299,14 @@ class EnemyManagement:
         #Move Enemies acoross / down screen
         if self.MOVEMENT == "INCREASE":
             if self.MoveX < 350:
-                self.MoveX += 0.5
+                self.MoveX += DIFFICULTY
             else:
                 self.MoveY += (20+13)
                 self.MOVEMENT = "DECREASE"
 
         if self.MOVEMENT == "DECREASE":
             if self.MoveX > 0:
-                self.MoveX -=  0.5
+                self.MoveX -=  DIFFICULTY
             else:
                 self.MoveY += (20+13)
                 self.MOVEMENT = "INCREASE"
@@ -312,6 +317,13 @@ class EnemyManagement:
         #self.ENEMY_LIST[ID] = pygame.Surface((32,32))
         #self.ENEMY_LIST.remove(self.ENEMY_LIST[ID])
         self.ENEMY_LIST[ID] = self.EnemyAlien(0, AlienType.Type0)
+
+    def isEmpty(self):
+        for alien in self.ENEMY_LIST:
+            if alien.TYPE != AlienType.Type0:
+                return False
+
+        return True
 
 class Player:
     SPRITE = None
@@ -334,7 +346,7 @@ class Player:
         self.HEALTH = 100
         self.XPOS = 400
         self.YPOS = 450
-        self.MOVE_SPEED = 4
+        self.MOVE_SPEED = 8
         self.LIFE = 3 #3 Lives
         self.SCORE = 0
 
@@ -342,7 +354,7 @@ class Player:
         self.FIRE_DISPLAY = False
         self.FIRE_XPOS = self.XPOS + (self.SPRITE.get_width() / 2)
         self.FIRE_YPOS = self.YPOS
-        self.FIRE_SPEED = 6
+        self.FIRE_SPEED = (3 + DIFFICULTY) * 3
 
     def MoveRight(self):
         #Move player to the right based upon speed
@@ -351,6 +363,9 @@ class Player:
     def MoveLeft(self):
         #Move player to the left based upon speed
         self.XPOS -= self.MOVE_SPEED
+
+    def Move(self, amount):
+        self.XPOS += int(round(amount * self.MOVE_SPEED,0))
 
     def Fire_Thread(self):
         #while within screen AND no collsion has happened:
@@ -383,6 +398,7 @@ class Player:
             self.FIRE_YPOS = self.YPOS
 
             self.FIRE_DISPLAY = True
+            SoundChannel.play(SoundPlayerFire)
 
             #Start Missile Management Thread
             thread.start_new_thread(self.Fire_Thread, ())
@@ -398,6 +414,7 @@ class Player:
 #Setup Variables
 START_GAME = False
 GAME_OVER = False
+DIFFICULTY = 1
 
 #Setup Classes
 video = Video()
@@ -406,6 +423,8 @@ enemy_man = EnemyManagement()
 player = Player()
 
 #Init Pygame
+pygame.mixer.pre_init(44100, -16, 2, 2048)
+pygame.mixer.init()
 pygame.init()
 
 #Hide Mouse
@@ -418,8 +437,16 @@ pygame.key.set_repeat(10,10)
 pygame.joystick.init()
 
 #Create Joystick to listen to and initialise it
-joystick = pygame.joystick.Joystick(1)
+joystick = pygame.joystick.Joystick(0)
 joystick.init()
+
+#Create two channels for music and sound
+SoundChannel = pygame.mixer.Channel(0)
+pygame.mixer.music.load("data/sounds/music.ogg")
+
+SoundAlienDeath = pygame.mixer.Sound("data/sounds/hit.wav")
+SoundPlayerFire = pygame.mixer.Sound("data/sounds/fire.wav")
+SoundPlayerHit = pygame.mixer.Sound("data/sounds/explosion.wav")
 
 #Setup Video
 video.SetDisplay(800, 600, False)
@@ -473,7 +500,7 @@ def EnemyFire_Monitor():
         Enemy_Can_Fire = None
         Enemy_Can_Fire = []
 
-        time.sleep(1)
+        time.sleep(1/float(DIFFICULTY * 2))
 
 #Start the Enemy Fire Monitoring Thread
 thread.start_new_thread(EnemyFire_Monitor, ())
@@ -488,28 +515,28 @@ while 1:
         #Check Player Life Count
         if player.LIFE <= 0:
             #Since the player has no more lives, the game is over
+            pygame.mixer.music.stop()
             GAME_OVER = True
 
         #FPS
         fps.Tick()
 
+        #Movement
+
+        player.Move(joystick.get_axis(0))
+
         #Events
         for event in pygame.event.get():
             #Catch key and Joystickevents - Basically the controls
-            if event.type == KEYDOWN or event.type == JOYAXISMOTION or event.type == JOYBUTTONDOWN:
-                if event.joy == 1 and event.axis == 0 and event.pos < 0:
-                    player.MoveLeft()
-                if event.joy == 1 and event.axis == 0 and event.pos > 0:
-                    player.MoveRight()
-                if event.joy == 1 and event.button == 0:
-                    player.Fire()
+            if event.type == KEYDOWN:
+
                 if event.key == K_ESCAPE:
                     pygame.quit()
                     sys.exit(0)
                 if event.key == K_RIGHT:
-                    player.MoveRight()
+                    player.Move(1)
                 if event.key == K_LEFT:
-                    player.MoveLeft()
+                    player.Move(-1)
                 if event.key == K_SPACE:
                     player.Fire()
                 if event.key == K_f:
@@ -518,13 +545,34 @@ while 1:
                     else:
                         video.SetDisplay(800, 600, False)
 
-                #CAN I HAZ CHEATS?
-               # if event.key == K_F1:
-               #     player.LIFE += 1
-               # if event.key == K_F2:
-               #     player.SCORE += 500
-               # if event.key == K_F3:
-               #     player.FIRE_SPEED += 2
+                # CAN I HAZ CHEATS?
+                # if event.key == K_F1:
+                #     player.LIFE += 1
+                # if event.key == K_F2:
+                #     player.SCORE += 500
+                # if event.key == K_F3:
+                #     player.FIRE_SPEED += 2
+
+            if event.type == JOYBUTTONDOWN:
+
+                if event.button == 2:
+                    player.Fire()
+                if event.button == 3:
+                    pygame.quit()
+                    sys.exit(0)
+                if event.button == 1:
+                    if video.getFullscreen() == False:
+                        video.SetDisplay(800, 600, True)
+                    else:
+                        video.SetDisplay(800, 600, False)
+
+        #spawn new wave
+        if enemy_man.isEmpty():
+            enemy_man.Generate()
+            #update difficulty
+            DIFFICULTY += 1
+
+            player.FIRE_SPEED += 2
 
 
         #Collision Check - Player Missile Hitting Enemy Alien
@@ -537,6 +585,8 @@ while 1:
 
                     #print "Collision[", i, "]"
                     player.FIRE_DISPLAY = False #Hide Player Missile
+
+                    SoundChannel.play(SoundAlienDeath)
 
                     #Update player's score accordingly
                     if enemy_man.ENEMY_LIST[i].getType() == AlienType.Type1:
@@ -567,6 +617,8 @@ while 1:
                     if enemy_man.ENEMY_LIST[i].FIRE_DISPLAY == True:
                         #Remove a life from player
                         player.LIFE -= 1
+
+                        SoundChannel.play(SoundPlayerHit)
 
                     #Update Enemy Missile Variables
                     enemy_man.ENEMY_LIST[i].FIRE_DISPLAY = False
@@ -621,6 +673,7 @@ while 1:
                     sys.exit(0)
                 if event.key == K_RETURN:
                     START_GAME = True
+                    pygame.mixer.music.play(-1)
                     video.SetDisplay(800, 600, video.getFullscreen())
                     break
                 if event.key == K_BACKSLASH:
@@ -630,6 +683,12 @@ while 1:
                     else:
                         video.SetDisplay(420, 400, False)
                         Loop_Count = 0 #Re-Load data for menu, and render
+
+            if event.type == JOYBUTTONDOWN:
+                START_GAME = True
+                pygame.mixer.music.play(-1)
+                video.SetDisplay(800, 600, video.getFullscreen())
+                break
 
         pygame.display.get_surface().blit(Menu_Logo, (0,0))
         pygame.display.get_surface().blit(Start_Game_Text, (10,250))
@@ -667,6 +726,10 @@ while 1:
                         video.SetDisplay(800, 600, False)
                         Loop_Count_GameOver = 0
 
+            if event.type == JOYBUTTONDOWN:
+                if event.button == 3:
+                    pygame.quit()
+                    sys.exit(0)
 
         enemy_man.Render()
         video.SCREEN.fill((0,0,0))
